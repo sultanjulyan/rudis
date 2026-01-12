@@ -1,0 +1,14 @@
+{
+    "chat.promptFilesRecommendations": {
+        "rudis.constitution": true,
+        "rudis.specify": true,
+        "rudis.plan": true,
+        "rudis.tasks": true,
+        "rudis.implement": true
+    },
+    "chat.tools.terminal.autoApprove": {
+        ".rudis/scripts/bash/": true,
+        ".rudis/scripts/powershell/": true
+    }
+}
+
