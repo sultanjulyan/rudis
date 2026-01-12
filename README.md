@@ -28,11 +28,8 @@
 - [🎯 Experimental Goals](#-experimental-goals)
 - [🔧 Prerequisites](#-prerequisites)
 - [📖 Learn More](#-learn-more)
-- [📋 Detailed Process](#-detailed-process)
 - [🔍 Troubleshooting](#-troubleshooting)
-- [👥 Maintainers](#-maintainers)
 - [💬 Support](#-support)
-- [🙏 Acknowledgements](#-acknowledgements)
 - [📄 License](#-license)
 
 ## 🤔 What is Spec-Driven Development?
@@ -50,7 +47,7 @@ Choose your preferred installation method:
 Install once and use everywhere:
 
 ```bash
-uv tool install rudis-cli --from git+https://github.com/github/rudis.git
+uv tool install rudis-cli --from git+https://github.com/sultanjulyan/rudis.git
 ```
 
 Then use the tool directly:
@@ -71,7 +68,7 @@ rudis check
 To upgrade Rudis, see the [Upgrade Guide](./docs/upgrade.md) for detailed instructions. Quick upgrade:
 
 ```bash
-uv tool install rudis-cli --force --from git+https://github.com/github/rudis.git
+uv tool install rudis-cli --force --from git+https://github.com/sultanjulyan/rudis.git
 ```
 
 #### Option 2: One-time Usage
@@ -79,7 +76,7 @@ uv tool install rudis-cli --force --from git+https://github.com/github/rudis.git
 Run directly without installing:
 
 ```bash
-uvx --from git+https://github.com/github/rudis.git rudis init <PROJECT_NAME>
+uvx --from git+https://github.com/sultanjulyan/rudis.git rudis init <PROJECT_NAME>
 ```
 
 **Benefits of persistent installation:**
@@ -350,8 +347,6 @@ rudis init . --force
 rudis init --here --force
 ```
 
-![Rudis CLI bootstrapping a new project in the terminal](./media/rudis_cli.gif)
-
 You will be prompted to select the AI agent you are using. You can also proactively rudis it directly in the terminal:
 
 ```bash
@@ -383,8 +378,6 @@ rudis init <project_name> --ai claude --ignore-agent-tools
 ### **STEP 1:** Establish project principles
 
 Go to the project folder and run your AI agent. In our example, we're using `claude`.
-
-![Bootstrapping Claude Code environment](./media/bootstrap-claude-code.gif)
 
 You will know that things are configured correctly if you see the `/rudis.constitution`, `/rudis.specify`, `/rudis.plan`, `/rudis.tasks`, and `/rudis.implement` commands available.
 
@@ -629,18 +622,9 @@ echo "Cleaning up..."
 rm gcm-linux_amd64.2.6.1.deb
 ```
 
-## 👥 Maintainers
-
-- Den Delimarsky ([@localden](https://github.com/localden))
-- John Lam ([@jflam](https://github.com/jflam))
-
 ## 💬 Support
 
-For support, please open a [GitHub issue](https://github.com/github/rudis/issues/new). We welcome bug reports, feature requests, and questions about using Spec-Driven Development.
-
-## 🙏 Acknowledgements
-
-This project is heavily influenced by and based on the work and research of [John Lam](https://github.com/jflam).
+For support, please open a [GitHub issue](https://github.com/sultanjulyan/rudis/issues/new). We welcome bug reports, feature requests, and questions about using Spec-Driven Development.
 
 ## 📄 License
 
