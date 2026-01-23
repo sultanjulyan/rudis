@@ -1,3 +1,7 @@
+<div align="center">
+    <img src="../media/logo_large.png" alt="Rudis Logo" width="200" height="200"/>
+</div>
+
 # Quick Start Guide
 
 This guide will help you get started with Spec-Driven Development using Rudis.

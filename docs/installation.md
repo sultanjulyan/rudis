@@ -1,3 +1,7 @@
+<div align="center">
+    <img src="../media/logo_large.png" alt="Rudis Logo" width="200" height="200"/>
+</div>
+
 # Installation Guide
 
 ## Prerequisites

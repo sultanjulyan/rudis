@@ -64,7 +64,9 @@
       "_gitContribute": {
         "repo": "https://github.com/sultanjulyan/rudis",
         "branch": "main"
-      }
+      },
+      "_appLogoPath": "media/logo_large.png",
+      "_appFaviconPath": "media/logo_large.png"
     }
   }
 }
