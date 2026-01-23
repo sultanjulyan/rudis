@@ -32,4 +32,10 @@ To build the documentation locally:
 
 ## Deployment
 
+### GitHub Pages
+
 Documentation is automatically built and deployed to GitHub Pages when changes are pushed to the `main` branch. The workflow is defined in `.github/workflows/docs.yml`.
+
+### GitLab Pages
+
+For GitLab deployment, the configuration is in `.gitlab-ci.yml`. See the [GitLab Deployment Guide](gitlab-deployment.md) for detailed setup instructions.

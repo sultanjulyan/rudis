@@ -1,0 +1,248 @@
+# GitLab CI/CD configuration for Rudis
+# Equivalent to GitHub Actions workflows: docs.yml, lint.yml, release.yml
+
+stages:
+  - lint
+  - build
+  - deploy
+  - release
+
+variables:
+  # DocFX version for documentation
+  DOCFX_VERSION: "2.77.0"
+
+# =============================================================================
+# LINT STAGE
+# =============================================================================
+
+markdownlint:
+  stage: lint
+  image: node:20-alpine
+  script:
+    - npm install -g markdownlint-cli2
+    - markdownlint-cli2 "**/*.md"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# =============================================================================
+# BUILD STAGE
+# =============================================================================
+
+build-docs:
+  stage: build
+  image: mcr.microsoft.com/dotnet/sdk:8.0
+  before_script:
+    - dotnet tool install -g docfx
+    - export PATH="$PATH:/root/.dotnet/tools"
+  script:
+    - cd docs
+    - docfx docfx.json
+    - mv _site ../public
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - docs/**/*
+    - if: $CI_PIPELINE_SOURCE == "web"  # Manual trigger
+
+# =============================================================================
+# DEPLOY STAGE - GitLab Pages
+# =============================================================================
+
+pages:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - echo "Deploying to GitLab Pages..."
+  artifacts:
+    paths:
+      - public
+  needs:
+    - job: build-docs
+      artifacts: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - docs/**/*
+    - if: $CI_PIPELINE_SOURCE == "web"  # Manual trigger
+  environment:
+    name: gitlab-pages
+    url: $CI_PAGES_URL
+
+# =============================================================================
+# RELEASE STAGE
+# =============================================================================
+
+.release-base:
+  stage: release
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache bash git curl zip jq
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - memory/**/*
+        - scripts/**/*
+        - templates/**/*
+        - .gitlab-ci.yml
+    - if: $CI_PIPELINE_SOURCE == "web"  # Manual trigger
+
+get-version:
+  extends: .release-base
+  script:
+    - chmod +x .gitlab/scripts/get-next-version-gitlab.sh
+    - .gitlab/scripts/get-next-version-gitlab.sh
+  artifacts:
+    reports:
+      dotenv: version.env
+
+check-release:
+  extends: .release-base
+  needs:
+    - job: get-version
+      artifacts: true
+  script:
+    - chmod +x .gitlab/scripts/check-release-exists-gitlab.sh
+    - .gitlab/scripts/check-release-exists-gitlab.sh "$NEW_VERSION"
+  artifacts:
+    reports:
+      dotenv: release_check.env
+
+create-packages:
+  extends: .release-base
+  needs:
+    - job: get-version
+      artifacts: true
+    - job: check-release
+      artifacts: true
+  script:
+    - |
+      if [ "$RELEASE_EXISTS" = "true" ]; then
+        echo "Release already exists, skipping package creation..."
+        exit 0
+      fi
+    - chmod +x .github/workflows/scripts/create-release-packages.sh
+    - .github/workflows/scripts/create-release-packages.sh "$NEW_VERSION"
+  artifacts:
+    paths:
+      - .genreleases/
+    expire_in: 1 day
+
+generate-release-notes:
+  extends: .release-base
+  needs:
+    - job: get-version
+      artifacts: true
+    - job: check-release
+      artifacts: true
+  script:
+    - |
+      if [ "$RELEASE_EXISTS" = "true" ]; then
+        echo "Release already exists, skipping release notes generation..."
+        echo "No release notes needed" > release_notes.md
+        exit 0
+      fi
+    - chmod +x .gitlab/scripts/generate-release-notes-gitlab.sh
+    - .gitlab/scripts/generate-release-notes-gitlab.sh "$NEW_VERSION" "$LATEST_TAG"
+  artifacts:
+    paths:
+      - release_notes.md
+    expire_in: 1 day
+
+create-release:
+  extends: .release-base
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs:
+    - job: get-version
+      artifacts: true
+    - job: check-release
+      artifacts: true
+    - job: create-packages
+      artifacts: true
+    - job: generate-release-notes
+      artifacts: true
+  script:
+    - |
+      if [ "$RELEASE_EXISTS" = "true" ]; then
+        echo "Release $NEW_VERSION already exists, skipping..."
+        exit 0
+      fi
+    - chmod +x .gitlab/scripts/create-gitlab-release.sh
+    - .gitlab/scripts/create-gitlab-release.sh "$NEW_VERSION"
+  release:
+    tag_name: $NEW_VERSION
+    description: release_notes.md
+    assets:
+      links:
+        - name: "rudis-template-copilot-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-copilot-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-copilot-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-copilot-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-claude-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-claude-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-claude-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-claude-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-gemini-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-gemini-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-gemini-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-gemini-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-cursor-agent-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-cursor-agent-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-cursor-agent-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-cursor-agent-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-qwen-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-qwen-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-qwen-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-qwen-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-opencode-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-opencode-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-opencode-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-opencode-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-windsurf-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-windsurf-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-windsurf-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-windsurf-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-codex-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-codex-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-codex-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-codex-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-kilocode-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-kilocode-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-kilocode-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-kilocode-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-auggie-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-auggie-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-auggie-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-auggie-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-roo-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-roo-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-roo-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-roo-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-codebuddy-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-codebuddy-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-codebuddy-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-codebuddy-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-qoder-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-qoder-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-qoder-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-qoder-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-amp-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-amp-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-amp-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-amp-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-shai-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-shai-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-shai-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-shai-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-q-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-q-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-q-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-q-ps-${NEW_VERSION}.zip"
+        - name: "rudis-template-bob-sh-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-bob-sh-${NEW_VERSION}.zip"
+        - name: "rudis-template-bob-ps-${NEW_VERSION}.zip"
+          url: "${CI_PROJECT_URL}/-/jobs/${CI_JOB_ID}/artifacts/file/.genreleases/rudis-template-bob-ps-${NEW_VERSION}.zip"

@@ -17,3 +17,9 @@
   items:
     - name: Local Development
       href: local-development.md
+
+# Deployment guides
+- name: Deployment
+  items:
+    - name: GitLab Deployment
+      href: gitlab-deployment.md

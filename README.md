@@ -1,6 +1,6 @@
 <div align="center">
-    <img src="./media/logo_large.webp" alt="Rudis Logo" width="200" height="200"/>
-    <h1>🌱 Rudis</h1>
+    <img src="./media/logo_large.png" alt="Rudis Logo" width="200" height="200"/>
+    <h1>Rudis</h1>
     <h3><em>Build high-quality software faster.</em></h3>
 </div>
 
@@ -232,6 +232,8 @@ rudis init my-project --ai claude --github-token ghp_your_token_here
 rudis check
 ```
 
+![Specify CLI bootstrapping a new project in the terminal](./media/rudis_cli.gif)
+
 ### Available Slash Commands
 
 After running `rudis init`, your AI coding agent will have access to these slash commands for structured development:
@@ -346,6 +348,8 @@ rudis init . --force
 # or
 rudis init --here --force
 ```
+
+![Specify CLI bootstrapping a new project in the terminal](./media/rudis_cli.gif)
 
 You will be prompted to select the AI agent you are using. You can also proactively rudis it directly in the terminal:
 
