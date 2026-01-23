@@ -128,7 +128,7 @@ build-docs:
 
 All jobs support manual triggering via `CI_PIPELINE_SOURCE == "web"`. Go to:
 
-**CI/CD → Pipelines → Run pipeline**
+CI/CD → Pipelines → Run pipeline
 
 ### Release Frequency
 
